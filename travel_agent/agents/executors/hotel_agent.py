@@ -369,12 +369,11 @@ class HotelSearchAgent(AgentBase):
         
         # Apply budget filtering if constraint is present
         budget_constraint = getattr(ctx.intent, "constraints", getattr(ctx.intent, "constraints", None))
-        print(f"BUDGET DEBUG: constraint={budget_constraint}, has_budget={hasattr(budget_constraint, 'budget_usd')}, budget_value={getattr(budget_constraint, 'budget_usd', None)}")  # Debug
         
+        # Simple budget filtering - check if budget_usd exists and has value
         if budget_constraint and hasattr(budget_constraint, "budget_usd"):
             budget_value = getattr(budget_constraint, "budget_usd", None)
             if budget_value is not None:
-                print(f"BUDGET FILTER: Found budget ${budget_value}/night")  # Simple debug
                 max_per_night = budget_value
                 filtered_results = []
             
