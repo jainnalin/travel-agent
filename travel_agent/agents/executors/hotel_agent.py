@@ -335,4 +335,43 @@ class HotelSearchAgent(AgentBase):
                 hotel = (r.get("raw") or {}).get("hotel") or {}
                 addr = hotel.get("address") if isinstance(hotel.get("address"), dict) else {}
         
+        # Apply budget filtering if constraint is present
+        budget_constraint = getattr(ctx.intent, "constraints", getattr(ctx.intent, "constraints", None))
+        
+        # Simple budget filtering - check if budget_usd exists and has value
+        if budget_constraint and hasattr(budget_constraint, "budget_usd"):
+            budget_value = getattr(budget_constraint, "budget_usd", None)
+            if budget_value is not None:
+                max_per_night = budget_value
+                filtered_results = []
+                
+                for hotel in results:
+                    if hotel.nightly_price and hotel.nightly_price.amount is not None:
+                        if hotel.nightly_price.amount <= max_per_night:
+                            filtered_results.append(hotel)
+                        elif hotel.total_price and hotel.total_price.amount is not None:
+                            # If no nightly price, estimate per-night from total
+                            trip_days = getattr(ctx.intent, "trip_days", 1)
+                            if trip_days and trip_days > 0:
+                                per_night_est = hotel.total_price.amount / trip_days
+                                if per_night_est <= max_per_night:
+                                    filtered_results.append(hotel)
+                
+                # Replace results with filtered results if budget constraint exists
+                if filtered_results:
+                    results = filtered_results
+                ctx.events.append(
+                    make_event(
+                        "agent.budget_filter",
+                        agent=self.name,
+                        step_id=step.id,
+                        details={
+                            "budget_constraint": max_per_night,
+                            "total_results": len(results),
+                            "filtered_results": len(filtered_results),
+                            "filtered_out": len(results) - len(filtered_results)
+                        },
+                    )
+                )
+
         ctx.hotels.extend(results)

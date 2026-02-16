@@ -1,13 +1,16 @@
 # travel_agent/nlp/rule_parser.py
 from __future__ import annotations
 
-import re
-import csv
 import os
+import csv
+import re
+from dataclasses import dataclass, field
 from datetime import date, timedelta
-from typing import Optional, Tuple, Dict
+from datetime import date as dt_date
+from typing import Optional, Tuple
 
-from travel_agent.contracts.intent import Constraints, PassengerInfo, UserIntent
+from travel_agent.contracts.intent import Domain, UserIntent, Constraints, PassengerInfo
+from travel_agent.contracts.messages import Message
 
 # -------------------------
 # Month mapping
@@ -95,18 +98,24 @@ def parse_text_to_intent(text: str, default_year: Optional[int] = None) -> UserI
 
     origin_city, dest_city = _extract_route_cities(tl)
     start_dt = _extract_start_date(tl, default_year=default_year)
+    return_dt = _extract_return_date(tl, default_year=default_year)
     trip_days = _extract_trip_days(tl)
 
     depart_date = start_dt.isoformat() if start_dt else None
-    end_dt = (start_dt + timedelta(days=trip_days)) if (start_dt and trip_days) else None
-    return_date = end_dt.isoformat() if end_dt else None
+    
+    # Use explicit return date if provided, otherwise calculate
+    if return_dt:
+        return_date = return_dt.isoformat()
+    else:
+        end_dt = (start_dt + timedelta(days=trip_days)) if (start_dt and trip_days) else None
+        return_date = end_dt.isoformat() if end_dt else None
 
     # If no dates provided, default to today + trip_days
     if not depart_date and trip_days:
-        from datetime import date as dt_date, timedelta
-        today = dt_date.today()
+        import datetime
+        today = datetime.date.today()
         depart_date = today.isoformat()
-        end_date = (today + timedelta(days=trip_days)).isoformat()
+        end_date = (today + datetime.timedelta(days=trip_days)).isoformat()
         return_date = end_date
 
     check_in = depart_date
@@ -222,6 +231,40 @@ def _extract_trip_days(tl: str) -> Optional[int]:
                 return int(m.group(1))
             except Exception:
                 continue
+    return None
+
+def _extract_return_date(tl: str, default_year: int) -> Optional[date]:
+    """Extract return date from text like 'returning July 2nd' or 'return July 2nd'."""
+    def _year(v: Optional[str]) -> int:
+        if not v:
+            return default_year
+        try:
+            y = int(v.strip())
+            if y < 100:
+                y += 2000
+            return y
+        except Exception:
+            return default_year
+
+    # formats: "returning July 2nd" / "return July 2nd" / "returning July 2nd 2026"
+    m = re.search(
+        r"\b(?:returning|return)\s+([a-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?(?:\s+(\d{2,4}))?\b",
+        tl,
+        re.IGNORECASE,
+    )
+    if m:
+        mo_name, d_s, y_s = m.group(1), m.group(2), m.group(3)
+        mo = _MONTHS.get(mo_name.lower())
+        if mo:
+            return date(_year(y_s), mo, int(d_s))
+
+    # formats: "returning on 7/2" or "return on 7/2/2026"
+    m = re.search(r"\b(?:returning|return)\s+(?:on\s+)?(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?\b", tl, re.IGNORECASE)
+    if m:
+        mo, d = int(m.group(1)), int(m.group(2))
+        y = _year(m.group(3))
+        return date(y, mo, d)
+
     return None
 
 def _extract_start_date(tl: str, default_year: int) -> Optional[date]:
