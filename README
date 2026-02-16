@@ -1,0 +1,298 @@
+
+
+Phase 4 — Adaptive Multi-Agent Loop (Completed ✅)
+Goal
+Establish a clean, reliable, adaptive multi-agent execution loop with explicit boundaries between planning, execution, evaluation, and decision-making — enabling retries, learning, and future planners without refactors.
+
+Architecture Overview
+
+User Intent
+   ↓
+Planner
+   ↓
+Execution Plan (Steps)
+   ↓
+Parallel Executor
+   ↓
+Runtime Signals + Warnings
+   ↓
+Evaluator
+   ↓
+Loop Decision (ACCEPT / REPLAN / ABORT)
+   ↺ (feedback via planner knobs)
+
+Core Responsibilities
+Planner
+* Produces a Plan (ordered DAG of Steps)
+* Reads:
+    * ctx.intent
+    * ctx.scratch["planner_knobs"]
+* Outputs:
+    * Steps with tools, args, resources, and timeouts
+* Does not:
+    * Execute steps
+    * Emit verdicts
+    * Inspect warnings directly
+
+Executor (ParallelExecutor)
+* Executes the DAG with:
+    * dependency ordering
+    * resource locks
+    * per-step timeouts
+* Emits runtime signals, not decisions:
+    * step.runtime events
+    * warnings (Step timeout, Step slow, etc.)
+* Enforces SLAs but does not decide retries
+
+Evaluator
+* Observes outcomes:
+    * results
+    * warnings
+    * runtime signals
+* Computes:
+    * planner_signals (facts)
+    * planner_knobs (recommended changes for next attempt)
+* Returns a recommendation:
+    * ACCEPT
+    * REPLAN
+    * ABORT
+* Does not emit events
+
+Loop (Orchestrator)
+* Owns control flow:
+    * attempts
+    * retries
+    * final acceptance
+* Handles:
+    * timeout vs non-timeout failures
+    * last-attempt best-effort logic
+* Single authority for verdict emission
+    * All verdicts go through _emit_verdict(...)
+    * Ensures consistent payload (attempt_index, confidence, reason)
+
+Feedback Loop (Key Phase-4 Achievement)
+Signals → Knobs → Plan Changes
+Example:
+* Executor emits step.runtime → timeout detected
+* Evaluator computes:    {
+*   "timeout_overrides": {
+*     "hotel.search": 50
+*   }
+* }
+*   
+* Planner reads knobs → increases timeout
+* Next attempt runs with adapted plan
+This loop converges or exits safely.
+
+Reliability & Safety Guarantees
+* Max attempts enforced
+* Best-effort acceptance on final timeout
+* Fatal errors short-circuit immediately
+* JSON-safe scratch state (no sets, no non-serializable objects)
+* Deterministic attempt indexing
+
+Discipline Enforced
+* ❌ No direct make_event("verdict", …) calls anywhere
+* ✅ All verdicts emitted via _emit_verdict() in loop.py
+* Executors signal, evaluators recommend, loop decides
+This creates a hard Phase-4 boundary that future work builds on.
+
+Phase 4 Status
+✅ Complete
+You now have:
+* A true multi-agent feedback loop
+* Clear planner ↔ executor ↔ evaluator contracts
+* Stable runtime signaling
+* A foundation for learning, arbitration, and APIs
+
+7 Functional Agents:
+Tier 1 – Cognitive
+    • LLMPlannerAgent
+
+Tier 2 – Domain
+    • FlightAgent
+    • HotelAgent
+    • BundleAgent
+
+Tier 3 – Intelligence
+    • RankerAgent
+    • EnrichAgent
+    • GeoAgent
+
+Folder Structure:
+
+travel_agent/
+  pyproject.toml                   # or requirements.txt
+  main.py                          # python3 main.py "run query" ...
+  README.md
+  env.sh
+  .gitignore
+
+  travel_agent/
+    __init__.py
+    version.py
+
+    cli/
+      __init__.py
+      main.py                      # python -m travel_agent ...
+      run_query.py                 # python3 main.py "run query" ...
+      commands/
+        __init__.py
+        run.py                     # run multi-agent loop
+        replay.py                  # replay from stored run
+        debug.py                   # print plan/graph/events/warnings
+        bench.py                   # optional: quick perf checks
+
+    contracts/                     # stable dataclasses/types (system API)
+      __init__.py
+      intent.py                    # UserIntent, Constraints, PassengerInfo...
+      context.py                   # SharedContext (state + artifacts + budgets)
+      plan.py                      # Plan, Step, ToolCall, StopConditions
+      result.py                    # canonical results (Flight/Hotel/Bundle)
+      warnings.py                  # Warning codes + structured warning payloads
+
+      events.py                    # Event types (immutable): StepStarted, ToolCalled...
+      messages.py                  # Message types for bus (commands + observations)
+      protocols.py                 # Protocols/Interfaces: Agent, Tool, Bus, Store
+
+    orchestrator/                  # adaptive loop + execution engine
+      __init__.py
+
+      loop.py                      # adaptive loop: plan -> execute -> evaluate -> replan
+      policies.py                  # retry/relax/budget/stop rules
+      evaluation.py                # verdict: ACCEPT/REPLAN/ABORT + confidence
+
+      registry.py                  # agent registry + tool registry
+      wiring.py                    # assemble system: agents/tools/bus/store (composition root)
+      planner.py
+
+      bus/                         # OPTIONAL UPGRADE: message bus
+        __init__.py
+        base.py                    # Bus interface (publish/subscribe)
+        inproc.py                  # in-process pub/sub, routing rules
+        router.py                  # topic routing / fanout / filters
+        middleware.py              # logging/metrics/retry wrappers for bus
+        topics.py                  # canonical topic names (strings/Enums)
+
+      exec/                        # OPTIONAL UPGRADE: parallel execution engine
+        __init__.py
+        base.py                    # Executor interface
+        sequential.py              # default: deterministic sequential executor
+        parallel.py                # parallel executor (ThreadPoolExecutor)
+        dag.py                     # build dependency graph from Plan steps
+        scheduler.py               # schedule ready steps, handle joins/cancels
+        locks.py                   # per-resource locks (provider/cache) if needed
+        timeouts.py                # step timeouts + cancellation helpers
+
+    agents/                        # actual agents (decision-making units)
+      __init__.py
+      base.py                      # Agent base, helpers, access patterns
+
+      planner/                     # Planner family
+        __init__.py
+        rule_based.py              # deterministic planner (Phase 4 baseline)
+        adaptive.py                # replan rules: relax constraints, alt airports/dates
+        llm_based.py               # optional later behind flag (keep isolated)
+
+      executors/                   # “doers”
+        __init__.py
+        flight_agent.py            # search flights tool calls -> ctx artifacts
+        hotel_agent.py             # search hotels
+        bundle_agent.py            # bundle endpoint OR compose flight+hotel
+        compose_agent.py           # explicitly handles "soft-bundle" composition
+        retry.py                   # retryConfig
+
+      critics/                     # “judges”
+        __init__.py
+        validator_agent.py         # validate results + emit warnings/confidence
+        ranker_agent.py            # scoring/ranking/dedupe
+        cost_guard_agent.py        # enforces provider call budgets
+
+      support/                     # helpers that still act as agents
+        __init__.py
+        geo_agent.py               # city/airport alternatives, radius broadening
+        enrich_agent.py            # enrich-top-n bounded calls
+        explainer_agent.py         # human-readable explanation from ctx+events
+
+      listeners/                   # OPTIONAL UPGRADE: bus subscribers
+        __init__.py
+        trace_listener.py          # listens to events/messages, writes to ctx trace
+        metrics_listener.py        # counters/timings
+        store_listener.py          # persists run artifacts incrementally
+        debug_listener.py          # prints live stream in --verbose
+
+    tools/                         # pure I/O and utilities (NOT agents)
+      __init__.py
+
+      providers/
+        __init__.py
+        base.py                    # Provider interfaces
+        amadeus/
+          __init__.py
+          client.py
+          flights.py
+          flight_agent_wrapper.py
+          flight_availabilities.py
+          hotels.py
+          bundle.py
+
+      cache/
+        __init__.py
+        base.py
+        file.py
+        memory.py
+        key.py
+
+      geo/
+        __init__.py
+        airports.csv
+        resolver.py
+
+      ranking/                     # pure functions used by ranker_agent
+        __init__.py
+        flight.py
+        hotel.py
+        bundle.py
+        scoring.py
+
+    runtime/                       # system plumbing (runs, serialization, logging)
+      __init__.py
+      run_id.py
+      serialization.py             # ctx/plan/events/messages <-> json
+      logging.py                   # structured logger config
+      telemetry/
+        __init__.py
+        counters.py
+        timings.py
+      store/
+        __init__.py
+        base.py                    # Store interface
+        file_store.py              # write runs/*.json
+        sqlite_store.py            # optional indexing/querying
+      replay/
+        __init__.py
+        player.py                  # replay a run by re-emitting events/messages
+
+    nlp/                           # parsing + normalization into contracts.Intent
+      __init__.py
+      rule_parser.py
+      enrich.py                    # if used for NLP-level enrichment
+      normalize/
+        __init__.py
+        base.py
+        flight.py
+        hotel.py
+        bundle.py
+
+  tests/
+    __init__.py
+    test_smoke.py
+    test_planner_rule_based.py
+    test_orchestrator_loop.py
+    test_bus_inproc.py             # optional upgrade tests
+    test_executor_parallel.py      # optional upgrade tests
+    fixtures/
+
+  scripts/
+    nlp_e2e.py
+    jq_lib.jq
