@@ -376,22 +376,22 @@ class HotelSearchAgent(AgentBase):
             if budget_value is not None:
                 max_per_night = budget_value
                 filtered_results = []
-            
-            for hotel in results:
-                if hotel.nightly_price and hotel.nightly_price.amount is not None:
-                    if hotel.nightly_price.amount <= max_per_night:
-                        filtered_results.append(hotel)
-                    elif hotel.total_price and hotel.total_price.amount is not None:
-                        # If no nightly price, estimate per-night from total
-                        trip_days = getattr(ctx.intent, "trip_days", 1)
-                        if trip_days and trip_days > 0:
-                            per_night_est = hotel.total_price.amount / trip_days
-                            if per_night_est <= max_per_night:
-                                filtered_results.append(hotel)
-            
-            # Replace results with filtered results if budget constraint exists
-            if filtered_results:
-                results = filtered_results
+                
+                for hotel in results:
+                    if hotel.nightly_price and hotel.nightly_price.amount is not None:
+                        if hotel.nightly_price.amount <= max_per_night:
+                            filtered_results.append(hotel)
+                        elif hotel.total_price and hotel.total_price.amount is not None:
+                            # If no nightly price, estimate per-night from total
+                            trip_days = getattr(ctx.intent, "trip_days", 1)
+                            if trip_days and trip_days > 0:
+                                per_night_est = hotel.total_price.amount / trip_days
+                                if per_night_est <= max_per_night:
+                                    filtered_results.append(hotel)
+                
+                # Replace results with filtered results if budget constraint exists
+                if filtered_results:
+                    results = filtered_results
                 ctx.events.append(
                     make_event(
                         "agent.budget_filter",

@@ -186,37 +186,42 @@ class FlightSearchAgent(AgentBase):
             cur = price.get("currency") or (getattr(ctx.intent, "currency", None) if ctx.intent else "USD")
 
             itins = item.get("itineraries")
-            if not isinstance(itins, list) or not itins or not isinstance(itins[0], dict):
-                continue
-            itin0 = itins[0]
-            segs = itin0.get("segments")
-            if not isinstance(segs, list) or not segs:
+            if not isinstance(itins, list) or not itins:
                 continue
 
-            seg0 = segs[0] if isinstance(segs[0], dict) else {}
-            seg_last = segs[-1] if isinstance(segs[-1], dict) else {}
+            # Process each itinerary (onward and return flights)
+            for itin in itins:
+                if not isinstance(itin, dict):
+                    continue
+                    
+                segs = itin.get("segments")
+                if not isinstance(segs, list) or not segs:
+                    continue
 
-            dep = seg0.get("departure") if isinstance(seg0.get("departure"), dict) else {}
-            arr = seg_last.get("arrival") if isinstance(seg_last.get("arrival"), dict) else {}
+                seg0 = segs[0] if isinstance(segs[0], dict) else {}
+                seg_last = segs[-1] if isinstance(segs[-1], dict) else {}
 
-            carrier = seg0.get("carrierCode")
-            flight_no = seg0.get("number")
-            stops = max(0, len(segs) - 1)
+                dep = seg0.get("departure") if isinstance(seg0.get("departure"), dict) else {}
+                arr = seg_last.get("arrival") if isinstance(seg_last.get("arrival"), dict) else {}
 
-            money_total = None
-            try:
-                if total is not None:
-                    money_total = Money(float(total), str(cur))
-            except Exception:
+                carrier = seg0.get("carrierCode")
+                flight_no = seg0.get("number")
+                stops = max(0, len(segs) - 1)
+
                 money_total = None
+                try:
+                    if total is not None:
+                        money_total = Money(float(total), str(cur))
+                except Exception:
+                    money_total = None
 
-            results.append(
-                FlightResult(
-                    provider="amadeus",
-                    origin=origin or dep.get("iataCode"),
-                    destination=destination or arr.get("iataCode"),
-                    depart_time=dep.get("at"),
-                    arrive_time=arr.get("at"),
+                results.append(
+                    FlightResult(
+                        provider="amadeus",
+                        origin=dep.get("iataCode"),  # Use actual segment origin
+                        destination=arr.get("iataCode"),  # Use actual segment destination
+                        depart_time=dep.get("at"),
+                        arrive_time=arr.get("at"),
                     carrier=str(carrier) if carrier else None,
                     flight_number=str(flight_no) if flight_no else None,
                     stops=stops,
