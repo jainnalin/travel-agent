@@ -235,20 +235,6 @@ class HotelSearchAgent(AgentBase):
         # Provider call
         # -------------------------------------------------
 
-        def on_retry(failed_attempt: int, max_attempts: int, err: Exception, sleep_s: float):
-            ctx.events.append(
-                make_event(
-                    "agent.retry",
-                    agent=self.name,
-                    step_id=step.id,
-                    tool=tool_name,
-                    attempt=failed_attempt,
-                    max_attempts=max_attempts,
-                    error=str(err),
-                    sleep_s=float(sleep_s),
-                )
-            )
-
         try:
             attempt_counter = {"n": 0}
 
@@ -348,24 +334,6 @@ class HotelSearchAgent(AgentBase):
             if area is None and isinstance(r.get("raw"), dict):
                 hotel = (r.get("raw") or {}).get("hotel") or {}
                 addr = hotel.get("address") if isinstance(hotel.get("address"), dict) else {}
-                area = addr.get("district") or (addr.get("lines", [None])[0] if addr.get("lines") else None)
-
-            results.append(
-                HotelResult(
-                    provider="amadeus",
-                    hotel_name=str(r.get("hotel_name") or r.get("name") or "UNKNOWN"),
-                    city=r.get("city"),
-                    nightly_price=nightly_price,
-                    total_price=total_price,
-                    refundable=r.get("refundable"),
-                    board=board,
-                    pay_type=pay_type,
-                    stars=self._to_int(r.get("stars")),
-                    rating=self._to_float(r.get("rating")),
-                    area=area,
-                    raw=dict(r),
-                )
-            )
         
         # Apply budget filtering if constraint is present
         budget_constraint = getattr(ctx.intent, "constraints", getattr(ctx.intent, "constraints", None))
