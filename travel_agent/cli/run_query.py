@@ -161,14 +161,19 @@ def run_text_query(text: str, *, debug: bool = False) -> None:
     # Only set defaults if dates are actually missing
     if not intent.depart_date:
         intent.depart_date = default_depart
-        if not intent.return_date:
+        # Only set return date for non-flight-only domains or when explicitly requested
+        if not intent.return_date and intent.domain != "flight_only":
             intent.return_date = intent.depart_date + timedelta(days=4)
     
     # Set check_in/check_out based on depart_date/return_date, not defaults
     if not intent.check_in:
         intent.check_in = intent.depart_date
     if not intent.check_out:
-        intent.check_out = intent.return_date or (intent.check_in + timedelta(days=4))
+        # For flight-only, only set check_out if return_date exists
+        if intent.domain == "flight_only":
+            intent.check_out = intent.return_date
+        else:
+            intent.check_out = intent.return_date or (intent.check_in + timedelta(days=4))
 
     # -----------------------------
     # Fix destination & city for bundle trips
