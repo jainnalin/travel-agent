@@ -220,6 +220,7 @@ def run_text_query(text: str, *, debug: bool = False) -> None:
 
     # Patch ctx.intent directly
     ctx.intent = intent
+    original_intent = intent  # Store original intent for hotel agent
     
     # Preserve constraints during normalization
     original_constraints = getattr(intent, 'constraints', None)

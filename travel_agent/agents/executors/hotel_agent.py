@@ -368,19 +368,30 @@ class HotelSearchAgent(AgentBase):
             )
         
         # Apply budget filtering if constraint is present
-        budget_constraint = getattr(ctx.intent, "constraints", getattr(ctx.intent, "constraints", None))
+        # Get budget from original intent before normalization
+        original_intent = getattr(ctx, 'original_intent', None)
+        if original_intent and hasattr(original_intent, 'constraints'):
+            budget_constraint = getattr(original_intent, 'constraints', None)
+        else:
+            budget_constraint = getattr(ctx.intent, "constraints", getattr(ctx.intent, "constraints", None))
         
-        # Simple budget filtering - check if budget_usd exists and has value
         if budget_constraint and hasattr(budget_constraint, "budget_usd"):
             budget_value = getattr(budget_constraint, "budget_usd", None)
             if budget_value is not None:
                 max_per_night = budget_value
                 filtered_results = []
             
-            for hotel in results:
-                if hotel.nightly_price and hotel.nightly_price.amount is not None:
-                    if hotel.nightly_price.amount <= max_per_night:
-                        filtered_results.append(hotel)
+            # Simple budget filtering - check if budget_usd exists and has value
+        if budget_constraint and hasattr(budget_constraint, "budget_usd"):
+            budget_value = getattr(budget_constraint, "budget_usd", None)
+            if budget_value is not None:
+                max_per_night = budget_value
+                filtered_results = []
+                
+                for hotel in results:
+                    if hotel.nightly_price and hotel.nightly_price.amount is not None:
+                        if hotel.nightly_price.amount <= max_per_night:
+                            filtered_results.append(hotel)
                     elif hotel.total_price and hotel.total_price.amount is not None:
                         # If no nightly price, estimate per-night from total
                         trip_days = getattr(ctx.intent, "trip_days", 1)
