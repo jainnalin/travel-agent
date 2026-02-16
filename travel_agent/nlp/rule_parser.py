@@ -101,6 +101,14 @@ def parse_text_to_intent(text: str, default_year: Optional[int] = None) -> UserI
     end_dt = (start_dt + timedelta(days=trip_days)) if (start_dt and trip_days) else None
     return_date = end_dt.isoformat() if end_dt else None
 
+    # If no dates provided, default to today + trip_days
+    if not depart_date and trip_days:
+        from datetime import date as dt_date, timedelta
+        today = dt_date.today()
+        depart_date = today.isoformat()
+        end_date = (today + timedelta(days=trip_days)).isoformat()
+        return_date = end_date
+
     check_in = depart_date
     check_out = return_date
     passengers = PassengerInfo(adults=_extract_adults(tl) or 1)
