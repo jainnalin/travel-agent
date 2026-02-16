@@ -90,10 +90,13 @@ def _print_results(ctx) -> None:
                     str(getattr(h, "rating", "N/A") or "N/A"),
                     str(getattr(h, "area", "N/A") or "N/A"),
                 ])
-            print("\nHotels found:")
-            print(tabulate(hotel_rows, headers=["Hotel", "Price (USD)", "Price Per Day (USD)", "Stars", "Rating", "Area"], tablefmt="grid"))
-        else:
-            print("No hotels found.\n")
+            if hotel_rows:
+                print("\nHotels found:")
+                print(tabulate(hotel_rows, headers=["Hotel", "Price (USD)", "Price Per Day (USD)", "Stars", "Rating", "Area"], tablefmt="grid"))
+            else:
+                # Only show "No hotels found" for hotel-only or bundle queries
+                if ctx.intent.domain in ["hotel_only", "bundle"]:
+                    print("No hotels found.\n")
     except Exception as e:
         print(f"[Hotel tabulate failed: {e}]\n")
 
@@ -109,10 +112,13 @@ def _print_results(ctx) -> None:
                     str(getattr(f, "arrive_time", "N/A") or "N/A"),
                     str(safe_price(f) or "N/A"),
                 ])
-            print("\nFlights found:")
-            print(tabulate(flight_rows, headers=["Origin", "Destination", "Depart", "Arrive", "Price (USD)"], tablefmt="grid"))
-        else:
-            print("No flights found.\n")
+            if flight_rows:
+                print("\nFlights found:")
+                print(tabulate(flight_rows, headers=["Origin", "Destination", "Depart", "Arrive", "Price (USD)"], tablefmt="grid"))
+            else:
+                # Only show "No flights found" for flight-only or bundle queries
+                if ctx.intent.domain in ["flight_only", "bundle"]:
+                    print("No flights found.\n")
     except Exception as e:
         print(f"[Flight tabulate failed: {e}]\n")
 
@@ -217,12 +223,82 @@ def run_text_query(text: str, *, debug: bool = False) -> None:
         CostGuardAgent(),
         GeoAgent(),
     ]
+    
+    def _format_processed_input(intent):
+        """Format processed input parameters in a user-friendly way"""
+        domain = intent.domain
+        
+        # Extract constraints/enrichments
+        constraints = getattr(intent, "constraints", None)
+        enrichments = []
+        
+        if constraints:
+            if hasattr(constraints, "budget_usd") and constraints.budget_usd:
+                enrichments.append(f"Budget: ${constraints.budget_usd}")
+            if hasattr(constraints, "nonstop") and constraints.nonstop:
+                enrichments.append("Non-stop")
+            if hasattr(constraints, "cabin") and constraints.cabin:
+                enrichments.append(f"Cabin: {constraints.cabin}")
+        
+        enrichment_str = f" ({', '.join(enrichments)})" if enrichments else ""
+        
+        # Helper to get city name from IATA code
+        def get_city_from_iata(iata_code):
+            if not iata_code or iata_code == "Unknown":
+                return "Unknown"
+            # Simple reverse lookup - could be enhanced with a proper mapping
+            city_mappings = {
+                "BOS": "Boston", "BWI": "Baltimore", "SAN": "San Diego", 
+                "MIA": "Miami", "LAX": "Los Angeles", "NYC": "New York",
+                "JFK": "New York", "SFO": "San Francisco", "ORD": "Chicago",
+                "ATL": "Atlanta", "DFW": "Dallas", "DEN": "Denver"
+            }
+            return city_mappings.get(iata_code, iata_code)
+        
+        if domain == "hotel_only":
+            city = intent.city or "Unknown"
+            check_in = intent.check_in
+            check_out = intent.check_out
+            return f"Hotel Only - City: {city}, Check-in: {check_in}, Check-out: {check_out}{enrichment_str}"
+        
+        elif domain == "flight_only":
+            origin = intent.origin or "Unknown"
+            destination = intent.destination or "Unknown"
+            depart_date = intent.check_in  # For flights, check_in is depart_date
+            return_date = intent.check_out  # For flights, check_out is return_date
+            
+            origin_city = get_city_from_iata(origin)
+            dest_city = get_city_from_iata(destination)
+            
+            result = f"Flight Only - From: {origin_city} ({origin}), To: {dest_city} ({destination}), Departure: {depart_date}"
+            if return_date:
+                result += f", Return: {return_date}"
+            result += enrichment_str
+            return result
+        
+        elif domain == "bundle":
+            origin = intent.origin or "Unknown"
+            destination = intent.destination or "Unknown"
+            city = intent.city or "Unknown"
+            check_in = intent.check_in
+            check_out = intent.check_out
+            depart_date = check_in  # For bundles, check_in is also depart_date
+            return_date = intent.check_out  # For bundles, check_out is also return_date
+            
+            origin_city = get_city_from_iata(origin)
+            dest_city = get_city_from_iata(destination)
+            
+            result = f"Bundle - From: {origin_city} ({origin}), To: {dest_city} ({destination}), Hotel's City: {city}, Check-in: {check_in}, Check-out: {check_out}"
+            if return_date and return_date != check_out:
+                result += f", Return: {return_date}"
+            result += enrichment_str
+            return result
+        
+        else:
+            return f"Processed Input - Domain: {domain}, Parameters: {vars(intent)}"
+
     from travel_agent.orchestrator.registry import Registry
     registry = Registry(planner=None, agents=agents)
-
-    print("=== INTENT BEFORE LOOP ===")
-    print(f"domain={ctx.intent.domain}, city={ctx.intent.city}, destination={ctx.intent.destination}, "
-          f"check_in={ctx.intent.check_in}, check_out={ctx.intent.check_out}")
 
     # -------------------------------
     # INTENT NORMALIZATION PATCH
@@ -253,16 +329,9 @@ def run_text_query(text: str, *, debug: bool = False) -> None:
     if original_constraints:
         ctx.intent.constraints = original_constraints
 
-    # Final safety check logging
-    print("=== NORMALIZED INTENT BEFORE LOOP ===")
-    print(
-        f"domain={intent.domain}, "
-        f"origin={intent.origin}, "
-        f"destination={intent.destination}, "
-        f"city={intent.city}, "
-        f"check_in={intent.check_in}, "
-        f"check_out={intent.check_out}"
-    )
+    # Print final processed input in user-friendly format
+    print("Processed Input Parameters")
+    print(_format_processed_input(intent))
 
     # -------------------------------
     # Normalize flight_only: extract "from X to Y" when NLP missed it
