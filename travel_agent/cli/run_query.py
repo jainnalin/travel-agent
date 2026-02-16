@@ -220,32 +220,28 @@ def run_text_query(text: str, *, debug: bool = False) -> None:
 
     # Patch ctx.intent directly
     ctx.intent = intent
-
+    
+    # Preserve constraints during normalization
+    original_constraints = getattr(intent, 'constraints', None)
+    
     # Normalize hotel-only queries
     if ctx.intent.domain == "hotel_only":
         if not ctx.intent.city and ctx.intent.destination:
             ctx.intent.city = ctx.intent.destination
-        if not ctx.intent.city and ctx.intent.origin:
-            ctx.intent.city = ctx.intent.origin
-
-    # Last-resort normalization for hotel_only
-    if intent.domain == "hotel_only" and not intent.city:
-        # Try parsing "in {city}" from raw text
-        import re
-        match = re.search(r"\bin\s+([A-Za-z\s]+)", intent.raw_text or "")
-        if match:
-            intent.city = match.group(1).strip().split()[0].capitalize()
-
     # Normalize flight-only queries
-    if intent.domain == "flight_only":
+    if ctx.intent.domain == "flight_only":
         # Ensure destination exists
-        if not intent.destination and intent.city:
-            intent.destination = intent.city
-
+        if not ctx.intent.destination and ctx.intent.city:
+            ctx.intent.destination = ctx.intent.city
+    
     # Normalize bundle queries (already mostly correct, but safe)
-    if intent.domain == "bundle":
-        if not intent.city and intent.destination:
-            intent.city = intent.destination
+    if ctx.intent.domain == "bundle":
+        if not ctx.intent.city and ctx.intent.destination:
+            ctx.intent.city = ctx.intent.destination
+    
+    # Restore constraints after normalization
+    if original_constraints:
+        ctx.intent.constraints = original_constraints
 
     # Final safety check logging
     print("=== NORMALIZED INTENT BEFORE LOOP ===")

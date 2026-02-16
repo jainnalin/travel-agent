@@ -108,6 +108,7 @@ def parse_text_to_intent(text: str, default_year: Optional[int] = None) -> UserI
         nonstop=_extract_nonstop_only(tl),
         max_stops=_extract_max_stops(tl),
         cabin=_extract_cabin(tl),
+        budget_usd=_extract_budget_usd(tl),
     )
 
     intent = UserIntent(
@@ -198,15 +199,21 @@ def _detect_objective(tl: str) -> Optional[str]:
 # Trip info extraction
 # -------------------------
 def _extract_trip_days(tl: str) -> Optional[int]:
-    m = re.search(r"\bfor\s+(\d+)\s+days?\b", tl) or re.search(r"\b(\d+)\s*-\s*day\b|\b(\d+)\s+day\b", tl)
-    if not m:
-        return None
-    for g in m.groups():
-        if g:
+    # Handle "for X days", "X days", "X-day" patterns
+    patterns = [
+        r"\bfor\s+(\d+)\s+days?\b",
+        r"\b(\d+)\s+days?\b",
+        r"\b(\d+)\s*-\s*day\b",
+        r"\b(\d+)\s+day\b"
+    ]
+    
+    for pattern in patterns:
+        m = re.search(pattern, tl)
+        if m:
             try:
-                return int(g)
+                return int(m.group(1))
             except Exception:
-                return None
+                continue
     return None
 
 def _extract_start_date(tl: str, default_year: int) -> Optional[date]:
@@ -339,6 +346,28 @@ def _extract_max_stops(tl: str) -> Optional[int]:
             return int(m.group(2)) if len(m.groups()) > 1 else int(m.group(1))
         except Exception:
             return None
+    return None
+
+def _extract_budget_usd(tl: str) -> Optional[float]:
+    """Extract budget constraint like 'under $200', 'budget $500', etc."""
+    # Handle various budget patterns
+    patterns = [
+        r"\bunder\s+\$(\d+(?:\.\d+)?)\b",
+        r"\bunder\s+(\d+(?:\.\d+)?)\s+usd?\b",
+        r"\bbudget\s+\$(\d+(?:\.\d+)?)\b",
+        r"\bbudget\s+(\d+(?:\.\d+)?)\s+usd?\b",
+        r"\blessthan\s+\$(\d+(?:\.\d+)?)\b",
+        r"\bmax\s+\$(\d+(?:\.\d+)?)\b",
+        r"\bmax\s+(\d+(?:\.\d+)?)\s+usd?\b"
+    ]
+    
+    for pattern in patterns:
+        m = re.search(pattern, tl, re.IGNORECASE)
+        if m:
+            try:
+                return float(m.group(1))
+            except Exception:
+                continue
     return None
 
 def _extract_adults(tl: str) -> Optional[int]:
