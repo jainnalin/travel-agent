@@ -167,9 +167,11 @@ def run_text_query(text: str, *, debug: bool = False) -> None:
     # Only set defaults if dates are actually missing
     if not intent.depart_date:
         intent.depart_date = default_depart
-        # Only set return date for non-flight-only domains or when explicitly requested
+        # Only set return date for non-flight-only domains when trip_days is available
         if not intent.return_date and intent.domain != "flight_only":
-            intent.return_date = intent.depart_date + timedelta(days=4)
+            trip_days = getattr(intent, "trip_days", None)
+            if trip_days and trip_days > 0:
+                intent.return_date = intent.depart_date + timedelta(days=trip_days)
     
     # Set check_in/check_out based on depart_date/return_date, not defaults
     if not intent.check_in:
@@ -179,7 +181,19 @@ def run_text_query(text: str, *, debug: bool = False) -> None:
         if intent.domain == "flight_only":
             intent.check_out = intent.return_date
         else:
-            intent.check_out = intent.return_date or (intent.check_in + timedelta(days=4))
+            # For hotels/bundles, use return_date or trip_days if available
+            if intent.return_date:
+                intent.check_out = intent.return_date
+            else:
+                trip_days = getattr(intent, "trip_days", None)
+                if trip_days and trip_days > 0:
+                    intent.check_out = intent.check_in + timedelta(days=trip_days)
+                else:
+                    # If no trip_days can be parsed, set a reasonable default (1 day for hotels)
+                    if intent.domain == "hotel_only":
+                        intent.check_out = intent.check_in + timedelta(days=1)
+                    elif intent.domain == "bundle":
+                        intent.check_out = intent.check_in + timedelta(days=3)
 
     # -----------------------------
     # Fix destination & city for bundle trips
@@ -332,6 +346,41 @@ def run_text_query(text: str, *, debug: bool = False) -> None:
     # Print final processed input in user-friendly format
     print("Processed Input Parameters")
     print(_format_processed_input(intent))
+
+    # -----------------------------
+    # Validate input before processing
+    # -----------------------------
+    validation_errors = []
+    
+    # Validate airports for flight-only and bundle queries
+    if intent.domain in ["flight_only", "bundle"]:
+        origin = intent.origin
+        destination = intent.destination
+        
+        # Check if origin is missing or invalid
+        if not origin or origin == "Unknown":
+            validation_errors.append("Invalid or missing origin airport")
+        # Check if destination is missing or invalid  
+        if not destination or destination == "Unknown":
+            validation_errors.append("Invalid or missing destination airport")
+    
+    # Validate city for hotel-only and bundle queries
+    if intent.domain in ["hotel_only", "bundle"]:
+        city = intent.city
+        if city and city == "Unknown":
+            validation_errors.append("Invalid city")
+    
+    # If validation errors exist, stop processing and show error
+    if validation_errors:
+        print("\n❌ Input Validation Error:")
+        for error in validation_errors:
+            print(f"   • {error}")
+        print("\nPlease check your input and try again.")
+        print("Examples:")
+        print("   • 'flights from Boston to San Diego'")
+        print("   • 'hotels in New York for 3 days'")
+        print("   • 'flights and hotels in Chicago'")
+        return
 
     # -------------------------------
     # Normalize flight_only: extract "from X to Y" when NLP missed it
