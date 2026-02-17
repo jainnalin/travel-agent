@@ -68,8 +68,11 @@ def _print_debug(*, intent, ctx) -> None:
 def _print_results(ctx) -> None:
     """Tabulate hotels and flights; robust to malformed data."""
     try:
-        if getattr(ctx, "hotels", None):
+        # Always process hotels for hotel-only and bundle queries
+        if ctx.intent.domain in ["hotel_only", "bundle"]:
             hotel_rows = []
+            hotels = getattr(ctx, "hotels", [])
+            
             # Calculate trip days for per-day pricing
             check_in = getattr(ctx.intent, "check_in", None)
             check_out = getattr(ctx.intent, "check_out", None)
@@ -79,7 +82,7 @@ def _print_results(ctx) -> None:
                 if trip_days <= 0:
                     trip_days = 1
             
-            for h in ctx.hotels:
+            for h in hotels:
                 total_price = safe_price(h) or 0
                 per_day_price = total_price / trip_days if trip_days > 0 else total_price
                 hotel_rows.append([
@@ -94,14 +97,13 @@ def _print_results(ctx) -> None:
                 print("\nHotels found:")
                 print(tabulate(hotel_rows, headers=["Hotel", "Price (USD)", "Price Per Day (USD)", "Stars", "Rating", "Area"], tablefmt="grid"))
             else:
-                # Only show "No hotels found" for hotel-only or bundle queries
-                if ctx.intent.domain in ["hotel_only", "bundle"]:
-                    print("No hotels found.\n")
+                print("No hotels found.\n")
     except Exception as e:
         print(f"[Hotel tabulate failed: {e}]\n")
 
     try:
-        if getattr(ctx, "flights", None):
+        # Always process flights for flight-only and bundle queries
+        if ctx.intent.domain in ["flight_only", "bundle"]:
             flight_rows = []
             flights = getattr(ctx, "flights", [])
             for f in flights:
@@ -116,9 +118,7 @@ def _print_results(ctx) -> None:
                 print("\nFlights found:")
                 print(tabulate(flight_rows, headers=["Origin", "Destination", "Depart", "Arrive", "Price (USD)"], tablefmt="grid"))
             else:
-                # Only show "No flights found" for flight-only or bundle queries
-                if ctx.intent.domain in ["flight_only", "bundle"]:
-                    print("No flights found.\n")
+                print("No flights found.\n")
     except Exception as e:
         print(f"[Flight tabulate failed: {e}]\n")
 
