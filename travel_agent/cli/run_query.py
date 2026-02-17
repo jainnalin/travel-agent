@@ -131,6 +131,60 @@ def run_text_query(text: str, *, debug: bool = False) -> None:
 
     # Parse user query into intent
     intent = parse_text_to_intent(text)
+    
+    # -----------------------------
+    # Early validation of parsed intent
+    # -----------------------------
+    validation_errors = []
+    
+    # Helper to validate IATA codes
+    def is_valid_iata_early(code):
+        if not code or code == "Unknown":
+            return False
+        # Basic IATA code validation: 3 letters, all uppercase
+        if len(code) != 3 or not code.isalpha():
+            return False
+        return True
+    
+    # Helper to validate city names
+    def is_valid_city_early(city):
+        if not city or city == "Unknown":
+            return False
+        # Basic validation: should contain at least one letter, not all same character
+        if len(city) < 2 or city.replace(' ', '').lower() == city.replace(' ', '')[0].lower() * len(city.replace(' ', '')):
+            return False
+        return True
+    
+    # Validate airports for flight-only and bundle queries
+    if intent.domain in ["flight_only", "bundle"]:
+        origin = intent.origin
+        destination = intent.destination
+        
+        # Check if origin is missing or invalid
+        if not origin or origin == "Unknown" or not is_valid_iata_early(origin):
+            validation_errors.append("Invalid or missing origin airport")
+        # Check if destination is missing or invalid  
+        if not destination or destination == "Unknown" or not is_valid_iata_early(destination):
+            validation_errors.append("Invalid or missing destination airport")
+    
+    # Validate city for hotel-only and bundle queries
+    if intent.domain in ["hotel_only", "bundle"]:
+        city = intent.city
+        if not city or city == "Unknown" or not is_valid_city_early(city):
+            validation_errors.append("Invalid city")
+    
+    # If validation errors exist, stop processing and show error
+    if validation_errors:
+        print("\n❌ Input Validation Error:")
+        for error in validation_errors:
+            print(f"   • {error}")
+        print("\nPlease check your input and try again.")
+        print("Examples:")
+        print("   • 'flights from Boston to San Diego'")
+        print("   • 'hotels in New York for 3 days'")
+        print("   • 'flights and hotels in Chicago'")
+        return
+    
     policy = default_loop_policy()
 
     # -----------------------------
@@ -352,22 +406,40 @@ def run_text_query(text: str, *, debug: bool = False) -> None:
     # -----------------------------
     validation_errors = []
     
+    # Helper to validate IATA codes
+    def is_valid_iata(code):
+        if not code or code == "Unknown":
+            return False
+        # Basic IATA code validation: 3 letters, all uppercase
+        if len(code) != 3 or not code.isalpha():
+            return False
+        return True
+    
+    # Helper to validate city names
+    def is_valid_city(city):
+        if not city or city == "Unknown":
+            return False
+        # Basic validation: should contain at least one letter, not all same character
+        if len(city) < 2 or city.replace(' ', '').lower() == city.replace(' ', '')[0].lower() * len(city.replace(' ', '')):
+            return False
+        return True
+
     # Validate airports for flight-only and bundle queries
     if intent.domain in ["flight_only", "bundle"]:
         origin = intent.origin
         destination = intent.destination
         
         # Check if origin is missing or invalid
-        if not origin or origin == "Unknown":
+        if not origin or origin == "Unknown" or not is_valid_iata(origin):
             validation_errors.append("Invalid or missing origin airport")
         # Check if destination is missing or invalid  
-        if not destination or destination == "Unknown":
+        if not destination or destination == "Unknown" or not is_valid_iata(destination):
             validation_errors.append("Invalid or missing destination airport")
     
     # Validate city for hotel-only and bundle queries
     if intent.domain in ["hotel_only", "bundle"]:
         city = intent.city
-        if city and city == "Unknown":
+        if not city or city == "Unknown" or not is_valid_city(city):
             validation_errors.append("Invalid city")
     
     # If validation errors exist, stop processing and show error
