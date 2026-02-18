@@ -132,9 +132,10 @@ class DefaultPlanner:
         # 1) Always reorder so we don't compose/validate before searches
         steps = _stable_reorder(steps)
 
-        # 2) If previous attempt proved bundle is impossible (no flights),
-        #    short-circuit expensive hotel retries in the next attempt.
-        #    (flight_agent sets ctx.scratch['bundle_impossible']=True on NO_RESULTS)
+        # Optimize bundle searches by avoiding expensive hotel retries when flights are unavailable.
+        # If a previous attempt indicated no flight results (bundle_impossible flag),
+        # we skip hotel searches in subsequent attempts to save resources.
+        # The flight_agent sets ctx.scratch['bundle_impossible']=True on NO_RESULTS.
         try:
             bundle_impossible = bool((ctx.scratch or {}).get("bundle_impossible") is True)
         except Exception:

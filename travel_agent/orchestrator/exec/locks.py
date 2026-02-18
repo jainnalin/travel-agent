@@ -1,4 +1,11 @@
 # travel_agent/orchestrator/exec/locks.py
+"""
+Resource Locking and Concurrency Control for Travel Agent Orchestrator.
+
+This module provides thread-safe resource management with configurable concurrency limits.
+It prevents resource conflicts and deadlocks when executing parallel operations.
+"""
+
 from __future__ import annotations
 
 from contextlib import contextmanager

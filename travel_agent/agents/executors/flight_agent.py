@@ -239,10 +239,6 @@ class FlightSearchAgent(AgentBase):
         attempts = max(1, int(os.getenv("AMADEUS_HTTP_RETRIES", "1") or "1"))
         cfg = RetryConfig(attempts=attempts)
 
-        # --- DEBUG ---
-        #print("FlightSearchAgent.run()")
-        #print("Intent:", getattr(ctx, "intent", None))
-
         def on_retry(failed_attempt: int, max_attempts: int, err: Exception, sleep_s: float) -> None:
             ctx.events.append(
                 make_event(

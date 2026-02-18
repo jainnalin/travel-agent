@@ -165,7 +165,7 @@ def _load_airport_data():
         
     except Exception as e:
         print(f"Warning: Could not load airport data: {e}")
-        _data_loaded = True  # Prevent repeated attempts
+        _data_loaded = True  # Prevent repeated load attempts
 
 
 def _resolve_non_iata_text(key: str) -> Tuple[Optional[str], List[str]]:

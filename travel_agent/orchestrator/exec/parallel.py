@@ -39,14 +39,14 @@ class ParallelExecutor:
         self.resource_limits = resource_limits or {}
         self.max_provider_calls = max_provider_calls
 
-        # ✅ NEW: preserve original plan step universe
+        # Preserve original plan step universe for dependency resolution
         self._full_plan_step_ids: Set[str] = set()
 
     def run_plan(self, *, ctx: SharedContext, registry: Registry, plan: Plan, attempt_index: int = 0, **_: Any) -> None:
         self.execute_plan(ctx=ctx, registry=registry, plan=plan, attempt_index=attempt_index)
 
     def execute_plan(self, *, ctx: SharedContext, registry: Registry, plan: Plan, attempt_index: int = 0, **_: Any) -> None:
-        # ✅ NEW: capture full original plan step IDs before any mutation
+        # Capture full original plan step IDs before any mutations
         self._full_plan_step_ids = {
             self._step_id(s)
             for s in (getattr(plan, "steps", []) or [])
@@ -65,7 +65,7 @@ class ParallelExecutor:
         """
         steps: List[Step] = list(getattr(plan, "steps", []) or [])
 
-        # ✅ FIX: use full original plan universe if available
+        # Use full original plan universe for dependency resolution if available
         if self._full_plan_step_ids:
             known: Set[str] = set(self._full_plan_step_ids)
         else:
@@ -250,7 +250,7 @@ class ParallelExecutor:
         except Exception:
             pass
 
-        # fallback: return original (can’t safely mutate/copy)
+        # Return the original step as a fallback when mutation is not possible
         return step
 
     def _sanitize_unknown_deps(self, ctx: SharedContext, plan: Plan, attempt_index: int) -> Plan:

@@ -100,5 +100,5 @@ def search_flights(intent: Any, **kwargs) -> Dict[str, Any]:
                 raise ValueError(f"Bad flight input: {e}")
             last_result = {"error": str(e)}
 
-    # fallback: return last attempted result
+    # Return the last attempted result as a fallback
     return last_result or {}
