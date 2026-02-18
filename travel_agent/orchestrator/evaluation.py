@@ -262,8 +262,9 @@ def evaluate(
 
     last_attempt = int(attempt) >= int(max_attempts - 1)
 
-    # bundle last attempt:
-    # - if still no bundles but we have hotels, accept hotels-only best effort
+    # Handle final attempt for bundle searches:
+    # If no complete bundles are available but we have hotel results, 
+    # accept hotels-only as a partial result to provide value to the user.
     if last_attempt and domain == "bundle" and required_domain_results <= 0:
         c = _counts(ctx)
         if c["hotels"] > 0:
@@ -290,7 +291,7 @@ def evaluate(
             confidence=float(ctx.confidence),
         )
 
-    # non-bundle last attempt => accept best effort
+    # For non-bundle searches on final attempt, accept best available results
     if last_attempt:
         ctx.confidence = max(float(getattr(ctx, "confidence", 0.0)), 0.4)
         ctx.scratch["planner_knobs"] = {}

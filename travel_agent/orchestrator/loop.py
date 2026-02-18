@@ -63,9 +63,9 @@ def _emit_verdict(
     v = _normalize_verdict(verdict) or "ABORT"
 
     payload = {
-        "attempt": int(attempt_index) + 1,     # human-friendly
-        "attempt_index": int(attempt_index),   # 0-based
-        "verdict": v,                          # ✅ normalized
+        "attempt": int(attempt_index) + 1,     # 1-based for user readability
+        "attempt_index": int(attempt_index),   # 0-based for internal processing
+        "verdict": v,                          # normalized verdict value
         "reason": str(reason or ""),
         "confidence": float(confidence),
     }
@@ -75,7 +75,7 @@ def _emit_verdict(
     ctx.scratch["final_reason"] = payload["reason"]
     ctx.scratch["final_confidence"] = float(confidence)
 
-    # event stream (dict event)
+    # Add verdict event to the event stream for real-time monitoring
     ctx.events.append({"ts": time.time(), "kind": "verdict", "data": payload})
 
 
@@ -269,11 +269,11 @@ def run_loop(*, ctx: SharedContext, registry: Registry, policy: LoopPolicy) -> N
         evaluation = _evaluate(ctx, plan, policy, attempt_index=attempt_index)
 
         v_raw = _verdict_value(evaluation)
-        v = _normalize_verdict(v_raw)  # ✅ normalize here
+        v = _normalize_verdict(v_raw)  # Ensure consistent verdict format
         r = _reason_value(evaluation)
         c = _confidence_value(evaluation, float(getattr(ctx, "confidence", 0.0)))
 
-        # always persist + emit verdict
+        # Persist and emit verdict for tracking and monitoring
         _emit_verdict(ctx, verdict=v, reason=r, confidence=c, attempt_index=attempt_index)
 
         # stop conditions

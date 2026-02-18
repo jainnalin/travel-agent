@@ -102,7 +102,11 @@ def _stable_sort_hotels(hotels: list[HotelResult]) -> list[HotelResult]:
 
 
 def _flight_key(f: FlightResult) -> str:
-    # Best-effort stable key across attempts/runs (no random IDs)
+    """
+    Generate a stable flight identifier for bundle key generation.
+    This creates consistent identifiers across multiple attempts and runs
+    without using random IDs, ensuring reproducible bundle keys.
+    """
     carrier = getattr(f, "carrier", None) or ""
     num = getattr(f, "flight_number", None) or ""
     dep = getattr(f, "depart_time", None) or ""

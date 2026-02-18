@@ -476,7 +476,7 @@ def run_text_query(text: str, *, debug: bool = False) -> None:
     run_loop(ctx=ctx, registry=registry, policy=policy)
 
     # -----------------------------
-    # Print debug (optional, robust)
+    # Optional Debug Output
     # -----------------------------
     debug = (ctx.scratch or {}).get("_debug", False)
     if debug:

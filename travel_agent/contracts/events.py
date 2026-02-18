@@ -27,9 +27,9 @@ EVENT_STEP_STARTED = "step.started"
 EVENT_STEP_COMPLETED = "step.completed"
 EVENT_STEP_FAILED = "step.failed"
 
-# NEW: stable runtime signal from executor (do NOT infer from warning titles)
+# Stable runtime signal from executor for step execution tracking
 EVENT_STEP_RUNTIME = "step.runtime"
-# data payload (recommended):
+# Expected data payload structure:
 # {
 #   "attempt_index": int,
 #   "step_id": str,

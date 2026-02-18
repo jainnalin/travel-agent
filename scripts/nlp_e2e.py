@@ -151,7 +151,7 @@ def run_text(text: str):
 
     print("RUN:", r.get("run_log_path"))
 
-    # warnings (consistent + debuggable)
+    # Display warning information for troubleshooting
     if "warning_summary" in r:
         ws = r.get("warning_summary") or {}
         fw = ws.get("flights") or {}
@@ -167,7 +167,7 @@ def run_text(text: str):
         print("WARNINGS:", r.get("warning_count"))
         print("  warn_sample:", (r.get("warnings_sample") or [])[:1])
 
-    # bundle component runs (helps debug)
+    # Display bundle component execution details for analysis
     if intent.domain == "bundle":
         comps = r.get("components") or {}
         print("  flight_run:", (comps.get("flights") or {}).get("run_log_path"))

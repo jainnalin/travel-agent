@@ -96,7 +96,7 @@ class AmadeusClient:
         return token
 
     # --------------------
-    # Debug helpers
+    # HTTP Client Utilities
     # --------------------
     def _headers(self) -> Dict[str, str]:
         token = self._ensure_token()

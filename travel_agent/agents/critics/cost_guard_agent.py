@@ -31,7 +31,7 @@ class CostGuardAgent(AgentBase):
         # Where usage comes from (best-effort across ctx implementations):
         used = _total_provider_calls(ctx)
 
-        # Breadcrumbs for replay/debug
+        # Store cost tracking information for audit and debugging purposes
         ctx.scratch.setdefault("cost_guard", {})
         ctx.scratch["cost_guard"]["used"] = int(used)
         ctx.scratch["cost_guard"]["budget"] = int(budget) if budget is not None else None

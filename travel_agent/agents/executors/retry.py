@@ -66,10 +66,10 @@ def call_with_retries(
             if i >= (attempts - 1) or not is_retryable(e):
                 raise
 
-            # i=0 means first failure -> first retry sleep uses n=1
+            # Calculate retry delay: first failure uses n=1 for exponential backoff
             sleep_s = backoff_sleep(cfg, n=i + 1)
             if on_retry:
-                # failed_attempt is 1-based: first failure is attempt=1
+                # Report failed attempt number (1-based indexing for user clarity)
                 on_retry(i + 1, attempts, e, float(sleep_s))
 
     raise last_err  # pragma: no cover

@@ -214,7 +214,7 @@ class RuleBasedPlanner:
 
         plan = self._new_plan(domain="bundle", steps=steps)
 
-        # Optional debug breadcrumb
+        # Log planning details for audit and debugging purposes
         try:
             ctx.events.append(
                 {

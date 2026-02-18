@@ -210,7 +210,7 @@ class AmadeusHotelsAdapter:
         )
 
     # ------------
-    # Temporary convenience
+    # Convenience Methods
     # ------------
 
     def list_properties_normalized(

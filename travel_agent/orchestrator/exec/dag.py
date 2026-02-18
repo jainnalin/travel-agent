@@ -111,7 +111,7 @@ def build_dag(plan: Plan) -> Dag:
                 continue
             canon = alias_to_canonical.get(dep_s)
             if not canon:
-                # Helpful debug: show what we *do* have
+                # Provide detailed error information for troubleshooting
                 known = sorted(steps_by_id.keys())
                 raise ValueError(
                     f"Step {sid!r} depends on unknown step {dep_s!r}. "
