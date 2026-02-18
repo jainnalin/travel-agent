@@ -250,6 +250,21 @@ class HotelSearchAgent(AgentBase):
                 )
                 return fn(**kwargs)
 
+            def on_retry(failed_attempt: int, max_attempts: int, err: Exception, sleep_s: float) -> None:
+                """Handle retry events by logging to context events."""
+                ctx.events.append(
+                    make_event(
+                        "agent.retry",
+                        agent=self.name,
+                        step_id=step.id,
+                        tool=tool_name,
+                        attempt=failed_attempt,
+                        max_attempts=max_attempts,
+                        error=str(err),
+                        sleep_s=float(sleep_s),
+                    )
+                )
+
             raw_items = call_with_retries(
                 _call_once,
                 args=provider_args,
